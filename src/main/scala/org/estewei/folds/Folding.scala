@@ -1,8 +1,8 @@
 package org.estewei.folds
 
 import scala.Boolean
-import scalaz.{Profunctor, Foldable}
-import monocle.{Fold, Prism}
+import scalaz.Foldable
+import monocle.Fold
 
 trait Folding[P[_, _]] extends Scan[P] {
 
@@ -22,8 +22,5 @@ trait Folding[P[_, _]] extends Scan[P] {
 
   def run[T[_], A, B](ta: T[A])(implicit T: Foldable[T]): P[A, B] => B =
     runOf(Fold[T, A], ta)
-
-  // Not sure if this is implementable as it seems like Monocle has specialized the p in Prism to (->)
-//  def beneath[S, T, A, B](l: Prism[S, T, A, B])(implicit P: Profunctor[P]): P[A, B] => P[S, T]
 
 }

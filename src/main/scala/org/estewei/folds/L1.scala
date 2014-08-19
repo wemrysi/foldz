@@ -1,11 +1,13 @@
 package org.estewei.folds
 
-import scala.Unit
-import scala.Predef.identity
 import scalaz._
+import scala.{Predef => P, Unit}
+import scalaz.std.tuple._
+import scalaz.syntax.bifunctor._
 
 sealed abstract class L1[A, B] {
   type C
+
   val k: C => B
   val h: C => A => C
   val z: A => C
@@ -15,6 +17,12 @@ sealed abstract class L1[A, B] {
 
   def map[D](f: B => D): L1[A, D] =
     L1[A, D, C](f compose k, h, z)
+
+  def ap[D](f: L1[A, B => D]): L1[A, D] =
+    L1[A, D, (f.C, C)](
+      cc => f.k(cc._1)(k(cc._2)),
+      cc => a => cc bimap (f.h(_)(a), h(_)(a)),
+      a => (f.z(a), z(a)))
 
   def flatMap[D](f: B => L1[A, D]): L1[A, D] =
     L1[A, D, (OneAnd[DList, A], B)](
@@ -34,9 +42,6 @@ sealed abstract class L1[A, B] {
 }
 
 object L1 {
-  import scalaz.std.function._
-  import scalaz.std.tuple._
-  import scalaz.syntax.bifunctor._
 
   def apply[A, B, _C](_k: _C => B, _h: _C => A => _C, _z: A => _C): L1[A, B] =
     new L1[A, B] { type C = _C; val k = _k; val h = _h; val z = _z }
@@ -56,31 +61,37 @@ object L1 {
       def interspersing[A, B](a: A, p: L1[A, B]): L1[A, B] =
         L1(p.k, (x: p.C) => b => p.h(p.h(x)(a))(b), p.z)
 
-      def choice[A, B, C](f: => L1[A, C], g: => L1[B, C]): L1[A \/ B, C] = {
-        lazy val p = f
-        lazy val q = g
-
-        L1[A \/ B, C, p.C \/ q.C](
-          _.fold(a => p.k(a), b => q.k(b)),
-          xy => ab => (xy, ab) match {
-            case (-\/(x), -\/(a)) => -\/(p.h(x)(a))
-            case (\/-(y), \/-(b)) => \/-(q.h(y)(b))
-            case _                => xy
+      override def left[A, B, C](l1: L1[A, B]): L1[(A \/ C), (B \/ C)] =
+        L1[A \/ C, B \/ C, l1.C \/ C](
+          _ leftMap l1.k,
+          cc => ac => (cc, ac) match {
+            case (-\/(lc), -\/(a)) => -\/(l1.h(lc)(a))
+            case (\/-(c) ,      _) => \/-(c)
+            case (_      , \/-(c)) => \/-(c)
           },
-          _.fold(x => -\/(p.z(x)), y => \/-(q.z(y))))
-      }
+          _ leftMap l1.z)
+
+      override def right[A, B, C](l1: L1[A, B]): L1[(C \/ A), (C \/ B)] =
+        L1[C \/ A, C \/ B, C \/ l1.C](
+          _ rightMap l1.k,
+          cc => ac => (cc, ac) match {
+            case (\/-(lc), \/-(a)) => \/-(l1.h(lc)(a))
+            case (-\/(c) ,      _) => -\/(c)
+            case (_      , -\/(c)) => -\/(c)
+          },
+          _ rightMap l1.z)
 
       def arr[A, B](f: A => B): L1[A, B] =
-        L1(f, (_: A) => a => a, identity)
+        L1(f, (_: A) => a => a, P.identity)
 
       def first[A, B, C](f: L1[A, B]): L1[(A, C), (B, C)] =
         L1[(A, C), (B, C), (f.C, C)](
-          _.leftMap(f.k),
-          c => a => a.leftMap(f.h(c._1)),
-          _.leftMap(f.z))
+          _ leftMap f.k,
+          c => _ leftMap f.h(c._1),
+          _ leftMap f.z)
 
       def id[A]: L1[A, A] =
-        arr(identity)
+        arr(P.identity)
 
       def compose[A, B, C](f: L1[B, C], g: L1[A, B]): L1[A, C] =
         f compose g
@@ -93,6 +104,9 @@ object L1 {
 
       def point[B](b: => B): L1[A, B] =
         L1[A, B, Unit](_ => b, _ => _ => (), _ => ())
+
+      override def ap[B, C](fa: => L1[A, B])(f: => L1[A, B => C]): L1[A, C] =
+        fa ap f
 
       def bind[B, C](fb: L1[A, B])(f: B => L1[A, C]): L1[A, C] =
         fb flatMap f

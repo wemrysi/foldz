@@ -1,7 +1,5 @@
 package org.estewei.folds
 
-import scalaz.Choice
-
 trait Scan[P[_, _]] extends Choice[P] {
 
   def prefix1[A, B](a: A, p: P[A, B]): P[A, B]

@@ -2,6 +2,7 @@ package org.estewei.folds
 
 import scalaz._
 import scala.{Predef => P, Unit}
+
 import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
 
@@ -43,8 +44,8 @@ sealed abstract class L1[A, B] {
 
 object L1 {
 
-  def apply[A, B, _C](_k: _C => B, _h: _C => A => _C, _z: A => _C): L1[A, B] =
-    new L1[A, B] { type C = _C; val k = _k; val h = _h; val z = _z }
+  def apply[A, B, X](_k: X => B, _h: X => A => X, _z: A => X): L1[A, B] =
+    new L1[A, B] { type C = X; val k = _k; val h = _h; val z = _z }
 
   implicit val l1Instance: Scan[L1] with Arrow[L1] =
     new Scan[L1] with Arrow[L1] {

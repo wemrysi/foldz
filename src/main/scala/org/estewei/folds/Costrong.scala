@@ -1,8 +1,9 @@
 package org.estewei.folds
 
-import scalaz.{Choice => _, _}
+import scalaz._
 
-trait Choice[=>:[_, _]] extends Profunctor[=>:] {
+// TODO: Replace from scalaz
+trait Costrong[=>:[_, _]] extends Profunctor[=>:] {
 
   def left[A, B, C](p: A =>: B): (A \/ C) =>: (B \/ C) =
     dimap[C \/ A, C \/ B, A \/ C, B \/ C](right(p))(_.fold(\/.right, \/.left))(_.fold(\/.right, \/.left))

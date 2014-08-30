@@ -4,7 +4,9 @@ import scalaz._
 import scala.{Predef => P, Unit}
 
 import scalaz.std.tuple._
+import scalaz.std.function._
 import scalaz.syntax.bifunctor._
+import scalaz.syntax.arrow._
 
 sealed abstract class L1[A, B] {
   type C
@@ -23,13 +25,13 @@ sealed abstract class L1[A, B] {
     L1[A, D, (f.C, C)](
       cc => f.k(cc._1)(k(cc._2)),
       cc => a => cc bimap (f.h(_)(a), h(_)(a)),
-      a => (f.z(a), z(a)))
+      f.z &&& z)
 
   def flatMap[D](f: B => L1[A, D]): L1[A, D] =
     L1[A, D, (OneAnd[DList, A], B)](
       t => f(t._2) walk t._1,
       t => a => (OneAnd(t._1.head, t._1.tail :+ a), t._2),
-      a => (OneAnd(a, DList[A]()), k(z(a))))
+      a => (OneAnd(a, DList[A]()), run1(a)))
 
   def compose[D](g: L1[D, A]): L1[D, B] =
     L1[D, B, (C, g.C)](
@@ -106,8 +108,8 @@ object L1 {
       def point[B](b: => B): L1[A, B] =
         L1[A, B, Unit](_ => b, _ => _ => (), _ => ())
 
-      override def ap[B, C](fa: => L1[A, B])(f: => L1[A, B => C]): L1[A, C] =
-        fa ap f
+      override def ap[B, C](fb: => L1[A, B])(f: => L1[A, B => C]): L1[A, C] =
+        fb ap f
 
       def bind[B, C](fb: L1[A, B])(f: B => L1[A, C]): L1[A, C] =
         fb flatMap f

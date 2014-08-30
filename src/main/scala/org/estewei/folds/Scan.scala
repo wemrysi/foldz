@@ -1,6 +1,6 @@
 package org.estewei.folds
 
-trait Scan[P[_, _]] extends Costrong[P] {
+trait Scan[P[_, _]] extends ProChoice[P] {
 
   def prefix1[A, B](a: A, p: P[A, B]): P[A, B]
 

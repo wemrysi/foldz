@@ -1,4 +1,4 @@
-package org.estewei.folds
+package org.estewei.foldz
 
 trait Scan[P[_, _]] extends ProChoice[P] {
 

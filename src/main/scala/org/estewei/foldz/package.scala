@@ -3,7 +3,7 @@ package org.estewei
 import scalaz._
 import monocle.Fold
 
-package object folds {
+package object foldz {
   import scalaz.syntax.std.function2._
 
   // TODO: Define for monocle.Fold

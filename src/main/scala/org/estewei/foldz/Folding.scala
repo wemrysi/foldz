@@ -1,4 +1,4 @@
-package org.estewei.folds
+package org.estewei.foldz
 
 import scala.Boolean
 import scalaz.Foldable

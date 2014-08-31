@@ -1,4 +1,4 @@
-package org.estewei.folds
+package org.estewei.foldz
 
 import scalaz._
 import scala.{Predef => P, Function, Boolean}

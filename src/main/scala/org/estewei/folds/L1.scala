@@ -49,8 +49,8 @@ object L1 {
   def apply[A, B, X](_k: X => B, _h: X => A => X, _z: A => X): L1[A, B] =
     new L1[A, B] { type C = X; val k = _k; val h = _h; val z = _z }
 
-  implicit val l1Instance: Scan[L1] with Arrow[L1] =
-    new Scan[L1] with Arrow[L1] {
+  implicit val l1Instance: Scan[L1] with Arrow[L1] with Choice[L1] =
+    new Scan[L1] with Arrow[L1] with Choice[L1] {
 
       def run1[A, B](a: A, p: L1[A, B]): B =
         p run1 a
@@ -63,6 +63,40 @@ object L1 {
 
       def interspersing[A, B](a: A, p: L1[A, B]): L1[A, B] =
         L1(p.k, (x: p.C) => b => p.h(p.h(x)(a))(b), p.z)
+
+      def id[A]: L1[A, A] =
+        arr(P.identity)
+
+      def compose[A, B, C](f: L1[B, C], g: L1[A, B]): L1[A, C] =
+        f compose g
+
+      def arr[A, B](f: A => B): L1[A, B] =
+        L1(f, (_: A) => a => a, P.identity)
+
+      def first[A, B, C](f: L1[A, B]): L1[(A, C), (B, C)] =
+        L1[(A, C), (B, C), (f.C, C)](f.k.first, c => f.h(c._1).first, f.z.first)
+
+      override def second[A, B, C](f: L1[A, B]): L1[(C, A), (C, B)] =
+        L1[(C, A), (C, B), (C, f.C)](f.k.second, c => f.h(c._2).second, f.z.second)
+
+      override def split[A, B, C, D](f: L1[A, B], g: L1[C, D]): L1[(A, C), (B, D)] =
+        L1(f.k *** g.k,
+          (xy: (f.C, g.C)) => ac => (f.h(xy._1)(ac._1), g.h(xy._2)(ac._2)),
+          f.z *** g.z)
+
+      override def combine[A, B, C](f: L1[A, B], g: L1[A, C]): L1[A, (B, C)] =
+        L1(f.k *** g.k,
+          (xy: (f.C, g.C)) => a => (f.h(xy._1)(a), g.h(xy._2)(a)),
+          f.z &&& g.z)
+
+      override def dimap[A, B, C, D](p: L1[A, B])(f: C => A)(g: B => D): L1[C, D] =
+        L1(g compose p.k, (x: p.C) => p.h(x) compose f, p.z compose f)
+
+      override def mapfst[A, B, C](p: L1[A, B])(f: C => A): L1[C, B] =
+        L1(p.k, (x: p.C) => p.h(x) compose f, p.z compose f)
+
+      override def mapsnd[A, B, C](p: L1[A, B])(f: B => C): L1[A, C] =
+        p map f
 
       override def left[A, B, C](l1: L1[A, B]): L1[(A \/ C), (B \/ C)] =
         L1[A \/ C, B \/ C, l1.C \/ C](
@@ -84,20 +118,20 @@ object L1 {
           },
           _ rightMap l1.z)
 
-      def arr[A, B](f: A => B): L1[A, B] =
-        L1(f, (_: A) => a => a, P.identity)
+      def choice[A, B, C](f: => L1[A, C], g: => L1[B, C]): L1[A \/ B, C] = {
+        lazy val x = f
+        lazy val y = g
 
-      def first[A, B, C](f: L1[A, B]): L1[(A, C), (B, C)] =
-        L1[(A, C), (B, C), (f.C, C)](
-          _ leftMap f.k,
-          c => _ leftMap f.h(c._1),
-          _ leftMap f.z)
-
-      def id[A]: L1[A, A] =
-        arr(P.identity)
-
-      def compose[A, B, C](f: L1[B, C], g: L1[A, B]): L1[A, C] =
-        f compose g
+        L1[A \/ B, C, x.C \/ y.C](
+          _ fold (a => x.k(a), b => y.k(b)),
+          cc => ab => (cc, ab) match {
+            case (-\/(fc), -\/(a)) => \/.left(x.h(fc)(a))
+            case (\/-(gc), \/-(b)) => \/.right(y.h(gc)(b))
+            case (-\/(fc), \/-(_)) => \/.left(fc)
+            case (\/-(gc), -\/(_)) => \/.right(gc)
+          },
+          _ bimap (a => x.z(a), b => y.z(b)))
+      }
     }
 
   implicit def l1Monad[A]: Monad[({type λ[α] = L1[A, α]})#λ] =

@@ -51,6 +51,22 @@ object L {
     L(s)(f andThen (_._1), f andThen (_._2))
 
   implicit val lInstance: Folding[L] = new Folding[L] {
+    def run1[A, B](a: A, p: L[A, B]): B =
+      p.k(p.h(p.z)(a))
+
+    def prefix1[A, B](a: A, p: L[A, B]): L[A, B] =
+      run1(a, p.duplicate)
+
+    def postfix1[A, B](p: L[A, B], a: A): L[A, B] =
+      p.extend(run1(a, _))
+
+    def interspersing[A, B](a: A, p: L[A, B]): L[A, B] =
+      L(Maybe.empty[p.R])(
+        _ cata (p.k, p.k(p.z)),
+        mr => b => mr.cata(
+          x => Maybe.just(p.h(p.h(x)(a))(b)),
+               Maybe.just(p.h(p.z)(b))))
+
     def runOf[S, A, B](f: Fold[S, A], s: S): L[A, B] => B =
       _ runOf (f, s)
 
@@ -72,21 +88,14 @@ object L {
     override def postfix[T[_]: Foldable, A, B](p: L[A, B]): T[A] => L[A, B] =
       ta => p extend run(ta)
 
-    def run1[A, B](a: A, p: L[A, B]): B =
-      p.k(p.h(p.z)(a))
+    override def dimap[A, B, C, D](l: L[A, B])(f: C => A)(g: B => D): L[C, D] =
+      L(l.z)(g compose l.k, r => l.h(r) compose f)
 
-    def prefix1[A, B](a: A, p: L[A, B]): L[A, B] =
-      run1(a, p.duplicate)
+    def mapfst[A, B, C](l: L[A, B])(f: C => A): L[C, B] =
+      L(l.z)(l.k, r => l.h(r) compose f)
 
-    def postfix1[A, B](p: L[A, B], a: A): L[A, B] =
-      p.extend(run1(a, _))
-
-    def interspersing[A, B](a: A, p: L[A, B]): L[A, B] =
-      L(Maybe.empty[p.R])(
-        _ cata (p.k, p.k(p.z)),
-        mr => b => mr.cata(
-          x => Maybe.just(p.h(p.h(x)(a))(b)),
-               Maybe.just(p.h(p.z)(b))))
+    def mapsnd[A, B, C](l: L[A, B])(f: B => C): L[A, C] =
+      L(l.z)(f compose l.k, l.h)
 
     override def left[A, B, C](l: L[A, B]): L[A \/ C, B \/ C] =
       L[A \/ C, B \/ C, l.R \/ C](\/.left(l.z))(
@@ -105,16 +114,10 @@ object L {
           case (-\/(c),      _) => \/.left(c)
           case (_     , -\/(c)) => \/.left(c)
         })
-
-    def mapfst[A, B, C](l: L[A, B])(f: C => A): L[C, B] =
-      L(l.z)(l.k, r => l.h(r) compose f)
-
-    def mapsnd[A, B, C](l: L[A, B])(f: B => C): L[A, C] =
-      L(l.z)(f compose l.k, l.h)
   }
 
-  implicit def lMonadComonad[A]: Monad[({type λ[α] = L[A, α]})#λ] with Comonad[({type λ[α] = L[A, α]})#λ] =
-    new Monad[({type λ[α] = L[A, α]})#λ] with Comonad[({type λ[α] = L[A, α]})#λ] {
+  implicit def lMonadComonad[A]: Monad[({type λ[α] = L[A, α]})#λ] with Comonad[({type λ[α] = L[A, α]})#λ] with Zip[({type λ[α] = L[A, α]})#λ] =
+    new Monad[({type λ[α] = L[A, α]})#λ] with Comonad[({type λ[α] = L[A, α]})#λ] with Zip[({type λ[α] = L[A, α]})#λ] {
       override def map[B, C](l: L[A, B])(f: B => C): L[A, C] =
         l map f
 
@@ -132,6 +135,9 @@ object L {
 
       def cobind[B, C](l: L[A, B])(f: L[A, B] => C): L[A, C] =
         l extend f
+
+      def zip[B, C](a: => L[A, B], b: => L[A, C]): L[A, (B, C)] =
+        tuple2(a, b)
     }
 
 }

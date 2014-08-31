@@ -1,4 +1,4 @@
-name := "folds"
+name := "foldz"
 
 organization := "org.estewei"
 

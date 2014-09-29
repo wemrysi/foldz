@@ -11,7 +11,8 @@ crossScalaVersions := Seq("2.10.4", "2.11.2")
 // Resolvers
 resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
-  "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
+  "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases",
+  "bintray/non" at "http://dl.bintray.com/non/maven"
 )
 
 // Compile options
@@ -42,3 +43,6 @@ libraryDependencies ++= Seq(
 
 // Wartremover
 wartremoverErrors ++= Warts.allBut(Wart.Nothing, Wart.NoNeedForMonad)
+
+// Kind Projector
+addCompilerPlugin("org.spire-math" % "kind-projector_2.11" % "0.5.2")

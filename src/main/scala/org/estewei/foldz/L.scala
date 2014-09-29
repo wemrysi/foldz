@@ -1,10 +1,11 @@
 package org.estewei.foldz
 
 import scalaz._
-import scala.{Predef => P, Function, Boolean}
+import scala.{Predef => P, Function, Boolean, Vector}
 import monocle.Fold
 
 import scalaz.std.tuple._
+import scalaz.std.vector._
 import scalaz.syntax.bifunctor._
 
 sealed abstract class L[A, B] {
@@ -18,20 +19,20 @@ sealed abstract class L[A, B] {
     k(T.foldl(ta, z)(h))
 
   def runOf[S](l: Fold[S, A], s: S): B =
-    k(foldlOf(l, z)(Function.uncurried(h))(s))
+    k(l.foldlOf(z)(Function.uncurried(h))(s))
 
   def map[C](f: B => C): L[A, C] =
     L(z)(f compose k, h)
 
-  def ap[D](f: L[A, B => D]): L[A, D] =
+  def ap[C](f: L[A, B => C]): L[A, C] =
     L((f.z, z))(
       xy => f.k(xy._1)(k(xy._2)),
       xy => a => xy bimap (f.h(_)(a), h(_)(a)))
 
   def flatMap[C](f: B => L[A, C]): L[A, C] =
-    L((DList[A](), k(z)))(
-      t => f(t._2) run t._1,
-      t => a => (t._1 :+ a, t._2))
+    ap(L(Vector[A]())(
+      xs => f andThen (_ run xs),
+      xs => a => xs :+ a))
 
   def extend[C](f: L[A, B] => C): L[A, C] =
     L(z)(f compose (L(_)(k, h)), h)
@@ -116,8 +117,8 @@ object L {
         })
   }
 
-  implicit def lMonadComonad[A]: Monad[({type λ[α] = L[A, α]})#λ] with Comonad[({type λ[α] = L[A, α]})#λ] with Zip[({type λ[α] = L[A, α]})#λ] =
-    new Monad[({type λ[α] = L[A, α]})#λ] with Comonad[({type λ[α] = L[A, α]})#λ] with Zip[({type λ[α] = L[A, α]})#λ] {
+  implicit def lMonadComonad[A]: Monad[L[A, ?]] with Comonad[L[A, ?]] with Zip[L[A, ?]] =
+    new Monad[L[A, ?]] with Comonad[L[A, ?]] with Zip[L[A, ?]] {
       override def map[B, C](l: L[A, B])(f: B => C): L[A, C] =
         l map f
 

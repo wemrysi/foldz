@@ -1,10 +1,11 @@
 package org.estewei.foldz
 
 import scalaz._
-import scala.{Predef => P, Unit}
+import scala.{Predef => P, Unit, Vector}
 
 import scalaz.std.tuple._
 import scalaz.std.function._
+import scalaz.std.vector._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.arrow._
 
@@ -28,10 +29,10 @@ sealed abstract class L1[A, B] {
       f.z &&& z)
 
   def flatMap[D](f: B => L1[A, D]): L1[A, D] =
-    L1[A, D, (OneAnd[DList, A], B)](
-      t => f(t._2) walk t._1,
-      t => a => (OneAnd(t._1.head, t._1.tail :+ a), t._2),
-      a => (OneAnd(a, DList[A]()), run1(a)))
+    ap(L1[A, B => D, OneAnd[Vector, A]](
+      xs => f andThen (_ walk xs),
+      xs => a => OneAnd(xs.head, xs.tail :+ a),
+      OneAnd(_, Vector[A]())))
 
   def compose[D](g: L1[D, A]): L1[D, B] =
     L1[D, B, (C, g.C)](
@@ -39,8 +40,8 @@ sealed abstract class L1[A, B] {
       cc => a => { val y = g.h(cc._2)(a); (h(cc._1)(g.k(y)), y) },
       a => { val y = g.z(a); (z(g.k(y)), y) })
 
-  private def walk(xs: OneAnd[DList, A]): B =
-    k(xs.tail.foldr(z(xs.head))((a, c) => h(c)(a)))
+  private def walk(xs: OneAnd[Vector, A]): B =
+    k(xs.tail.foldLeft(z(xs.head))((c, a) => h(c)(a)))
 
 }
 
@@ -134,8 +135,8 @@ object L1 {
       }
     }
 
-  implicit def l1Monad[A]: Monad[({type λ[α] = L1[A, α]})#λ] =
-    new Monad[({type λ[α] = L1[A, α]})#λ] {
+  implicit def l1Monad[A]: Monad[L1[A, ?]] =
+    new Monad[L1[A, ?]] {
       override def map[B, C](fb: L1[A, B])(f: B => C) =
         fb map f
 

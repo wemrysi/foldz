@@ -28,10 +28,10 @@ sealed abstract class R1[A, B] {
       f.z &&& z)
 
   def flatMap[D](f: B => R1[A, D]): R1[A, D] =
-    R1[A, D, (OneAnd[IList, A], B)](
-      c => f(c._2) walk c._1,
-      a => c => { val (xs, b) = c; (OneAnd(a, xs.head :: xs.tail), b) },
-      a => (OneAnd(a, IList.empty), run1(a)))
+    ap(R1[A, B => D, OneAnd[EphemeralStream, A]](
+      xs => f andThen (_ walk xs),
+      a => xs => OneAnd(xs.head, a ##:: xs.tail),
+      OneAnd(_, EphemeralStream[A])))
 
   def compose[D](g: R1[D, A]): R1[D, B] =
     R1[D, B, (C, g.C)](
@@ -39,15 +39,8 @@ sealed abstract class R1[A, B] {
       d => cc => { val (c, gc) = cc; val y = g.h(d)(gc); (h(g.k(y))(c), y) },
       d => { val y = g.z(d); (z(g.k(y)), y) })
 
-  private def walk(xs: OneAnd[IList, A]): B = {
-    def go(xs0: OneAnd[IList, A]): C =
-      xs0 match {
-        case OneAnd(a, INil())         => z(a)
-        case OneAnd(a0, ICons(a1, as)) => h(a0)(go(OneAnd(a1, as)))
-      }
-
-    k(go(xs))
-  }
+  private def walk(xs: OneAnd[EphemeralStream, A]): B =
+    k(xs.tail.foldRight(z(xs.head))(h(_)))
 
 }
 
@@ -156,14 +149,14 @@ object R1 {
       }
     }
 
-  implicit def r1Monad[A]: Monad[({type λ[α] = R1[A, α]})#λ] with Zip[({type λ[α] = R1[A, α]})#λ] =
-    new Monad[({type λ[α] = R1[A, α]})#λ] with Zip[({type λ[α] = R1[A, α]})#λ] {
+  implicit def r1Monad[A]: Monad[R1[A, ?]] with Zip[R1[A, ?]] =
+    new Monad[R1[A, ?]] with Zip[R1[A, ?]] {
       override def map[B, C](fb: R1[A, B])(f: B => C) =
         fb map f
 
       def point[B](b: => B): R1[A, B] =
         R1[A, B, Unit](_ => b, _ => _ => (), _ => ())
-      
+
       override def ap[B, C](fb: => R1[A, B])(f: => R1[A, B => C]): R1[A, C] =
         fb ap f
 

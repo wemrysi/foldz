@@ -101,20 +101,12 @@ object L {
     override def left[A, B, C](l: L[A, B]): L[A \/ C, B \/ C] =
       L[A \/ C, B \/ C, l.R \/ C](\/.left(l.z))(
         _ leftMap l.k,
-        rc => ac => (rc, ac) match {
-          case (-\/(r), -\/(a)) => \/.left(l.h(r)(a))
-          case (\/-(c),      _) => \/.right(c)
-          case (_     , \/-(c)) => \/.right(c)
-        })
+        rc => ac => rc.fold(r => ac.fold(a => \/.left(l.h(r)(a)), \/.right), \/.right))
 
     override def right[A, B, C](l: L[A, B]): L[C \/ A, C \/ B] =
       L[C \/ A, C \/ B, C \/ l.R](\/.right(l.z))(
         _ rightMap l.k,
-        cr => ca => (cr, ca) match {
-          case (\/-(r), \/-(a)) => \/.right(l.h(r)(a))
-          case (-\/(c),      _) => \/.left(c)
-          case (_     , -\/(c)) => \/.left(c)
-        })
+        cr => ca => cr.fold(\/.left, r => ca.fold(\/.left, a => \/.right(l.h(r)(a)))))
   }
 
   implicit def lMonadComonad[A]: Monad[L[A, ?]] with Comonad[L[A, ?]] with Zip[L[A, ?]] =

@@ -68,26 +68,26 @@ object L {
           x => Maybe.just(p.h(p.h(x)(a))(b)),
                Maybe.just(p.h(p.z)(b))))
 
-    def runOf[S, A, B](f: Fold[S, A], s: S): L[A, B] => B =
-      _ runOf (f, s)
+    def runOf[S, A, B](f: Fold[S, A])(s: S, p: L[A, B]): B =
+      p runOf (f, s)
 
-    override def run[T[_]: Foldable, A, B](ta: T[A]): L[A, B] => B =
-      _ run ta
+    override def run[T[_]: Foldable, A, B](ta: T[A], p: L[A, B]): B =
+      p run ta
 
-    def filtering[A, B](p: A => Boolean): L[A, B] => L[A, B] =
-      l => L(l.z)(l.k, r => a => if (p(a)) l.h(r)(a) else r)
+    def filtering[A, B](p: A => Boolean)(l: L[A, B]): L[A, B] =
+      L(l.z)(l.k, r => a => if (p(a)) l.h(r)(a) else r)
 
-    def prefixOf[S, A, B](f: Fold[S, A], s: S): L[A, B] => L[A, B] =
-      runOf(f, s) compose (_.duplicate)
+    def prefixOf[S, A, B](f: Fold[S, A])(s: S, p: L[A, B]): L[A, B] =
+      runOf(f)(s, p.duplicate)
 
-    override def prefix[T[_]: Foldable, A, B](ta: T[A]): L[A, B] => L[A, B] =
-      run(ta) compose (_.duplicate)
+    override def prefix[T[_]: Foldable, A, B](ta: T[A], p: L[A, B]): L[A, B] =
+      run(ta, p.duplicate)
 
-    def postfixOf[S, A, B](f: Fold[S, A], p: L[A, B]): S => L[A, B] =
-      s => p extend runOf(f, s)
+    def postfixOf[S, A, B](f: Fold[S, A])(p: L[A, B], s: S): L[A, B] =
+      p.extend(runOf(f)(s, _))
 
-    override def postfix[T[_]: Foldable, A, B](p: L[A, B]): T[A] => L[A, B] =
-      ta => p extend run(ta)
+    override def postfix[T[_]: Foldable, A, B](p: L[A, B], ta: T[A]): L[A, B] =
+      p.extend(run(ta, _))
 
     override def dimap[A, B, C, D](l: L[A, B])(f: C => A)(g: B => D): L[C, D] =
       L(l.z)(g compose l.k, r => l.h(r) compose f)

@@ -37,12 +37,15 @@ scalacOptions ++= Seq(
 
 // Compile Dependencies
 libraryDependencies ++= Seq(
+  // General
   "org.scalaz" %% "scalaz-core" % "7.1.0",
-  "com.github.julien-truffaut" %% "monocle-core" % "0.5.1"
+  "com.github.julien-truffaut" %% "monocle-core" % "0.5.1",
+  // Testing
+  "org.scalacheck" %% "scalacheck" % "1.11.6" % "test"
 )
 
 // Wartremover
-wartremoverErrors ++= Warts.allBut(Wart.Nothing, Wart.NoNeedForMonad)
+wartremoverErrors in (Compile, compile) ++= Warts.allBut(Wart.Nothing, Wart.NoNeedForMonad)
 
 // Kind Projector
 addCompilerPlugin("org.spire-math" % "kind-projector_2.11" % "0.5.2")
